@@ -3,61 +3,50 @@ from Crypto.Util.Padding import unpad
 from Crypto.Util.number import long_to_bytes
 import hashlib
 import binascii
-import sys
+import ecdsa
 
-def decrypt_flag(encrypted_data, private_key):
+def get_private_key():
+    # Initialize the same curve from the challenge
+    curve = ecdsa.curves.NIST224p
+    
+    # The branch_location in the challenge is the public key point
+    # We need to reverse the public key point to get private key
+    # This would require solving the ECDLP problem
+    # For this challenge, you'll need to obtain the private key through other means
+    # Such as analyzing the ECDSA signatures and the random k values used
+    return None  # Replace with actual private key once obtained
+
+def decrypt_flag(encrypted_data, private_key_d):
+    # Extract IV and ciphertext
+    iv = bytes.fromhex(encrypted_data[:32])
+    encrypted_flag = bytes.fromhex(encrypted_data[32:])
+    
+    # Derive key using SHA-256 (same as in checkout function)
+    key = hashlib.sha256(long_to_bytes(private_key_d)).digest()
+    
+    # Decrypt using AES-CBC
+    cipher = AES.new(key, AES.MODE_CBC, iv)
+    decrypted = cipher.decrypt(encrypted_flag)
+    
     try:
-        # Validate input
-        if not isinstance(encrypted_data, str) or len(encrypted_data) < 32:
-            raise ValueError("Invalid encrypted data format")
-            
-        # Extract IV and encrypted flag
-        iv_hex = encrypted_data[:32]
-        encrypted_flag_hex = encrypted_data[32:]
-        
-        # Convert hex to bytes
-        try:
-            iv = binascii.unhexlify(iv_hex)
-            encrypted_flag = binascii.unhexlify(encrypted_flag_hex)
-        except binascii.Error as e:
-            raise ValueError(f"Invalid hex data: {e}")
-            
-        # Derive AES key - using SHA-256 for key derivation
-        aes_key = hashlib.sha256(long_to_bytes(private_key)).digest()
-        
-        # Initialize cipher
-        cipher = AES.new(aes_key, AES.MODE_CBC, iv)
-        
-        # Decrypt and unpad
-        decrypted_raw = cipher.decrypt(encrypted_flag)
-        decrypted_flag = unpad(decrypted_raw, AES.block_size)
-        
-        return decrypted_flag.decode('utf-8')
-        
-    except Exception as e:
+        # Unpad the decrypted data
+        flag = unpad(decrypted, 16)
+        return flag.decode()
+    except ValueError as e:
         return f"Decryption failed: {str(e)}"
 
-def main():
-    # Your encrypted data
-    encrypted_data = "6601b7897968991e500d523f1073a15604515faeba23560ced71a573d711e20425ceb19fe8ed38072f4f366bd78db56d8c4818262bf4694f18b1c3d17510bee7"
-    
-    # Try multiple possible private keys
-    test_keys = [
-        1234567890,
-        987654321,
-        int('1234567890', 16),  # Try hex interpretation
-        123456789012345,
-        # Add more potential keys if needed
-    ]
-    
-    for key in test_keys:
-        print(f"\nTrying key: {key}")
-        result = decrypt_flag(encrypted_data, key)
-        if not result.startswith("Decryption failed"):
-            print(f"Successfully decrypted flag: {result}")
-            return
-        
-    print("\nDecryption failed with all attempted keys.")
+# Your encrypted flag
+encrypted_flag = "6601b7897968991e500d523f1073a15604515faeba23560ced71a573d711e20425ceb19fe8ed38072f4f366bd78db56d8c4818262bf4694f18b1c3d17510bee7"
 
-if __name__ == "__main__":
-    main()
+# To solve this challenge, you need to:
+# 1. Get multiple ECDSA signatures by washing dishes
+# 2. Analyze the signatures to find a pattern in k values
+# 3. Use the pattern to recover the private key
+# 4. Use the private key to decrypt the flag
+
+# Once you have the private key:
+private_key = None  # Replace with recovered private key
+if private_key:
+    print(decrypt_flag(encrypted_flag, private_key))
+else:
+    print("Need to recover private key first")
