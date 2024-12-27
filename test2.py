@@ -1,6 +1,7 @@
 from Crypto.Cipher import AES
 from Crypto.Util.Padding import unpad
 from hashlib import sha256
+from Crypto.Util.number import long_to_bytes  # Import the missing function
 
 # This is the ciphertext you got from the receipt
 ciphertext_hex = "f45fa9931320544b8181d0ae999531cca71702b05489f9cd9adf5782a50350c51bac1753e93996d99d2186f75f208b7714ec07661e1ba8b8fa5c1d568d37fc6f"
