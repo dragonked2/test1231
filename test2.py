@@ -1,40 +1,43 @@
-import hashlib
-import json
-import os
-from Crypto.Cipher import AES
-from Crypto.Util.Padding import pad
-from Crypto.Util.number import long_to_bytes
-import random
+from Crypto.Util.number import isPrime, long_to_bytes
+from math import gcd
 
-# Constants
-IV = os.urandom(8)  # Random Initialization Vector for AES
-KEY = os.urandom(16)  # Random AES Key for encryption
-FLAG = os.environ.get("FLAG", "0xL4ugh{6d656f776d6f65776d6f65776d6f6577}").encode()  # Default FLAG if not set in environment
+def find_small_prime_factors(n, max_bits=20):
+    """Try to find small prime factors up to 2^max_bits"""
+    for i in range(2, 2**max_bits):
+        if n % i == 0 and isPrime(i):
+            return i
+    return None
 
-class Player:
-    def __init__(self, credits=800):
-        self.credits = credits
+# Given values
+n = 18186672849609603331344182584568642941078893104802301217241028624469607021717197485036251613075846729705028441094100248337306406098776983108141004863456595015660485098203867670995838502297993710897784135087115777697925848407153788837657722171924264421550564295047937036911411846582733847201015164634546149603743246378710225407507435371659148999942913405493417037116587298256802831009824832360479040621348157491754407277404391337488226402711686156101028879269050800874367763551119682177453648890492731413760738825931684979379268401715029193518612541590846238434595210876468090976194627398214837801868969047036272502669215123
+e = 65537
+c = 1617999293557620724157535537778741335004656286655134597579706838690566178453141895621909480622070931381931296468696585541046188947144084107698620486576573164517733264644244665803523581927226503313545336021669824656871624111167113668644971950653103830443634752480477923970518891620296211614968804248580381104245404606917784407446279304488720323993268637887493503760075542578433642707326246816504761740168067216112150231996966168374619580811013034502620645288021335483574561758204631096791789272910596432850424873592013042090724982779979496197239647019869960002253384162472401724931485470355288814804233134786749608640103461
 
-class CoffeShop:
-    def __init__(self, available_credits):
-        self.available = available_credits
-        self.d = random.randint(1, 224)  # Random private key for simulation
+# Step 1: Find small prime factor (w)
+w = find_small_prime_factors(n)
+print(f"Found w: {w}")
 
-    def checkout(self, player):
-        if player.credits >= 800:
-            sha256 = hashlib.sha256()
-            sha256.update(long_to_bytes(self.d))  # Use the random private key
-            key = sha256.digest()  # AES key derived from the private key
-            iv = os.urandom(16)  # Random IV for AES encryption
-            cipher = AES.new(key, AES.MODE_CBC, iv)  # AES encryption in CBC mode
-            print(f"Here's your receipt: ")
-            encrypted_flag = cipher.encrypt(pad(FLAG, 16))  # Encrypt the flag
-            return iv.hex() + encrypted_flag.hex()  # Return IV + encrypted flag
+# Step 2: For each potential p, check if x = 2wp - 1 is prime
+def find_factors(n, w):
+    # Try potential values of p
+    for p in range(2, 10000):  # We'll try some reasonable range
+        if n % p == 0:  # If p is a factor
+            x = 2 * w * p - 1
+            if isPrime(x) and n % x == 0:  # Check if x is prime and divides n
+                q = n // (p * x)
+                if p * q * x == n:  # Verify we found the correct factorization
+                    return p, q, x
+    return None
 
-# No need to simulate washing dishes, we directly proceed to checkout
-shop = CoffeShop(800)
-you = Player(800)
+# Find the factors
+p, q, x = find_factors(n, w)
+print(f"Found factors:\np = {p}\nq = {q}\nx = {x}")
 
-print("You have enough money to pay for the meal!")
-print("Getting the flag directly...")
-print(shop.checkout(you))  # Directly output the encrypted flag
+# Calculate private key
+phi = (p-1) * (q-1) * (x-1)
+d = pow(e, -1, phi)
+
+# Decrypt the message
+m = pow(c, d, n)
+flag = long_to_bytes(m)
+print(f"\nDecrypted flag: {flag.decode()}")
