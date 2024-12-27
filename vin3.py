@@ -3,33 +3,61 @@ from Crypto.Util.Padding import unpad
 from Crypto.Util.number import long_to_bytes
 import hashlib
 import binascii
+import sys
 
-# Provided encrypted data (the IV + encrypted FLAG)
-encrypted_data = "6601b7897968991e500d523f1073a15604515faeba23560ced71a573d711e20425ceb19fe8ed38072f4f366bd78db56d8c4818262bf4694f18b1c3d17510bee7"
+def decrypt_flag(encrypted_data, private_key):
+    try:
+        # Validate input
+        if not isinstance(encrypted_data, str) or len(encrypted_data) < 32:
+            raise ValueError("Invalid encrypted data format")
+            
+        # Extract IV and encrypted flag
+        iv_hex = encrypted_data[:32]
+        encrypted_flag_hex = encrypted_data[32:]
+        
+        # Convert hex to bytes
+        try:
+            iv = binascii.unhexlify(iv_hex)
+            encrypted_flag = binascii.unhexlify(encrypted_flag_hex)
+        except binascii.Error as e:
+            raise ValueError(f"Invalid hex data: {e}")
+            
+        # Derive AES key - using SHA-256 for key derivation
+        aes_key = hashlib.sha256(long_to_bytes(private_key)).digest()
+        
+        # Initialize cipher
+        cipher = AES.new(aes_key, AES.MODE_CBC, iv)
+        
+        # Decrypt and unpad
+        decrypted_raw = cipher.decrypt(encrypted_flag)
+        decrypted_flag = unpad(decrypted_raw, AES.block_size)
+        
+        return decrypted_flag.decode('utf-8')
+        
+    except Exception as e:
+        return f"Decryption failed: {str(e)}"
 
-# Extract the IV and encrypted FLAG from the provided hex string
-iv_hex = encrypted_data[:32]  # First 32 hex characters (16 bytes) represent the IV
-encrypted_flag_hex = encrypted_data[32:]  # The remaining hex characters represent the encrypted FLAG
+def main():
+    # Your encrypted data
+    encrypted_data = "6601b7897968991e500d523f1073a15604515faeba23560ced71a573d711e20425ceb19fe8ed38072f4f366bd78db56d8c4818262bf4694f18b1c3d17510bee7"
+    
+    # Try multiple possible private keys
+    test_keys = [
+        1234567890,
+        987654321,
+        int('1234567890', 16),  # Try hex interpretation
+        123456789012345,
+        # Add more potential keys if needed
+    ]
+    
+    for key in test_keys:
+        print(f"\nTrying key: {key}")
+        result = decrypt_flag(encrypted_data, key)
+        if not result.startswith("Decryption failed"):
+            print(f"Successfully decrypted flag: {result}")
+            return
+        
+    print("\nDecryption failed with all attempted keys.")
 
-# Convert the hex strings to bytes
-iv = binascii.unhexlify(iv_hex)
-encrypted_flag = binascii.unhexlify(encrypted_flag_hex)
-
-# Manually set the private key `self.d` (from the original code logic)
-private_key_d = 1234567890  # The value of `self.d` used in the original code
-
-# Derive the AES key from the private key using SHA-256
-aes_key = hashlib.sha256(long_to_bytes(private_key_d)).digest()
-
-# Decrypt the encrypted FLAG using AES in CBC mode
-cipher = AES.new(aes_key, AES.MODE_CBC, iv)
-
-# Decrypt the encrypted FLAG
-decrypted_flag_raw = cipher.decrypt(encrypted_flag)
-
-# Try to unpad the decrypted data (using the same padding scheme as in the original code)
-try:
-    decrypted_flag = unpad(decrypted_flag_raw, 16)  # Unpad with block size of 16 bytes (AES block size)
-    print(f"Decrypted FLAG: {decrypted_flag.decode()}")
-except ValueError as e:
-    print(f"Error during decryption: Padding is incorrect. Debug Info: {e}")
+if __name__ == "__main__":
+    main()
