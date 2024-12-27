@@ -30,14 +30,19 @@ def find_factors(n, w):
     return None
 
 # Find the factors
-p, q, x = find_factors(n, w)
-print(f"Found factors:\np = {p}\nq = {q}\nx = {x}")
+result = find_factors(n, w)
 
-# Calculate private key
-phi = (p-1) * (q-1) * (x-1)
-d = pow(e, -1, phi)
+if result:
+    p, q, x = result
+    print(f"Found factors:\np = {p}\nq = {q}\nx = {x}")
 
-# Decrypt the message
-m = pow(c, d, n)
-flag = long_to_bytes(m)
-print(f"\nDecrypted flag: {flag.decode()}")
+    # Calculate private key
+    phi = (p-1) * (q-1) * (x-1)
+    d = pow(e, -1, phi)
+
+    # Decrypt the message
+    m = pow(c, d, n)
+    flag = long_to_bytes(m)
+    print(f"\nDecrypted flag: {flag.decode()}")
+else:
+    print("Failed to find valid factors.")
