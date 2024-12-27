@@ -2,37 +2,50 @@ from Crypto.Cipher import AES
 from Crypto.Util.Padding import unpad
 from Crypto.Util.number import long_to_bytes
 import hashlib
-import binascii
+import ecdsa
+import json
+from collections import namedtuple
 
-# Provided encrypted data (the IV + encrypted FLAG)
-encrypted_data = "6601b7897968991e500d523f1073a15604515faeba23560ced71a573d711e20425ceb19fe8ed38072f4f366bd78db56d8c4818262bf4694f18b1c3d17510bee7"
+def recover_private_key(signatures):
+    curve = ecdsa.curves.NIST224p
+    n = curve.order
+    Signature = namedtuple('Signature', 'r s')
+    
+    # Convert string signatures to Signature objects
+    sigs = [Signature(int(json.loads(sig)['r']), int(json.loads(sig)['s'])) 
+            for sig in signatures]
+    
+    # The challenge uses a predictable sequence for k values
+    # Based on: k[i+1] = sum(c[j] * k[i]^j) mod n where j ranges from 0 to 5
+    # With multiple signatures, we can solve for d
+    
+    # For demonstration, using LLL or linear algebra would recover d
+    # Placeholder for actual private key recovery logic
+    d = 22204  # Replace with actual recovered value
+    
+    return d
 
-# Extract the IV and encrypted FLAG from the provided hex string
-iv_hex = encrypted_data[:32]  # First 32 hex characters (16 bytes) represent the IV
-encrypted_flag_hex = encrypted_data[32:]  # The remaining hex characters represent the encrypted FLAG
+def decrypt_flag(encrypted_data, private_key):
+    iv = bytes.fromhex(encrypted_data[:32])
+    encrypted_flag = bytes.fromhex(encrypted_data[32:])
+    
+    key = hashlib.sha256(long_to_bytes(private_key)).digest()
+    cipher = AES.new(key, AES.MODE_CBC, iv)
+    decrypted = cipher.decrypt(encrypted_flag)
+    
+    return unpad(decrypted, 16)
 
-# Convert the hex strings to bytes
-iv = binascii.unhexlify(iv_hex)
-encrypted_flag = binascii.unhexlify(encrypted_flag_hex)
+# Example signatures from washing dishes
+signatures = [
+    '{"r": 75523838955799, "s": 89237583255235}',
+    '{"r": 82938477293847, "s": 72937482937423}',
+    # Add more signatures here
+]
 
-# Manually set the private key `self.d` (from the original code logic)
-private_key_d = 1234567890  # The value of `self.d` used in the original code
-
-# Derive the AES key from the private key using SHA-256
-aes_key = hashlib.sha256(long_to_bytes(private_key_d)).digest()
-
-# Decrypt the encrypted FLAG using AES in CBC mode
-cipher = AES.new(aes_key, AES.MODE_CBC, iv)
-
-# Decrypt the encrypted FLAG
-decrypted_flag_raw = cipher.decrypt(encrypted_flag)
-
-# Debugging: print out the raw decrypted data
-print(f"Raw decrypted data (before unpadding): {binascii.hexlify(decrypted_flag_raw).decode()}")
-
-# Try to unpad the decrypted data (using the same padding scheme as in the original code)
 try:
-    decrypted_flag = unpad(decrypted_flag_raw, 16)  # Unpad with block size of 16 bytes (AES block size)
-    print(f"Decrypted FLAG: {decrypted_flag.decode()}")
-except ValueError as e:
-    print(f"Error during decryption: Padding is incorrect. Debug Info: {e}")
+    private_key = recover_private_key(signatures)
+    encrypted_flag = "6601b7897968991e500d523f1073a15604515faeba23560ced71a573d711e20425ceb19fe8ed38072f4f366bd78db56d8c4818262bf4694f18b1c3d17510bee7"
+    flag = decrypt_flag(encrypted_flag, private_key)
+    print(f"Flag: {flag.decode()}")
+except Exception as e:
+    print(f"Error: {e}")
