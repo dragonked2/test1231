@@ -1,6 +1,5 @@
-from ecdsa import SECP256k1, ellipticcurve
+from ecdsa import ellipticcurve, SECP256k1
 from ecdsa.ellipticcurve import Point
-from ecdsa.util import number_to_string
 from Crypto.Util.number import bytes_to_long
 import hashlib
 
@@ -11,9 +10,8 @@ p = 5789604461865809771178549250434395392663499233282028201972879200395656482006
 
 # Set up the elliptic curve and the generator point
 curve = ellipticcurve.CurveFp(p, a, b)
-G = Point(curve, 0, 0)  # Will need to replace this with the actual generator point coordinates
 
-# Known values (the public points)
+# Points given from the CTF
 public_points = [
     127222731808447286384197097524849730324280912084690383123034174156693907296321941583008138816149304043198829099586978152639,
     540150767459876746741544981524050320567261340627105743010550795668800394677819357272612801849680099119164471834128771848184,
@@ -24,28 +22,21 @@ public_points = [
     339613985780778130822549050414603776860269549419836797423421156347303558845214120048926926114443864057942273222884788713615
 ]
 
-# Define the generator point G (using the given elliptic curve parameters)
-# For this part, you'd typically obtain G from the elliptic curve's generator point formula.
-# For simplicity, let's assume that G is the generator of SECP256k1 as a placeholder:
+# Generator point (G)
 G = SECP256k1.generator
 
-# Function to solve for the private key using the points
+# Function to recover private key from the given public points
 def solve_private_key(public_points, G, curve):
-    # Calculate the x-coordinates of the points
-    x_coords = public_points
-
-    # We have 7 values of P + i * G, we will use these to solve for the private key
-    # Using linear algebra or discrete logarithm methods (which is a simplified approach here)
-
-    # In the real world, you'd use the 7 points to construct the system of equations for discrete logs
-    # Here's a simplified brute-force attempt for small inputs (not practical for real-world large cases)
+    x_coords = public_points  # Given x-coordinates of points P + i*G
     
-    for private_key in range(1, 100000):  # Try different private keys (brute force for demonstration)
-        # Calculate G * private_key and check if its x-coordinate matches one of the given points
-        P = G * private_key
-        if P.x() in x_coords:
+    # Now we will try to brute force the private key by checking the results of G*private_key
+    # Since the challenge hints at using 7 x-coordinates, we'll try brute force for small private keys (not realistic for large cases)
+    
+    for private_key in range(1, 100000):  # For simplicity, we are testing only up to 100000 (this is for small challenges)
+        P = G * private_key  # Compute G*private_key
+        if P.x() in x_coords:  # Check if the x-coordinate of G*private_key is one of the public points
             print(f"Found private key: {private_key}")
-            break
+            return private_key
 
-# Solve for the private key
+# Solve for the private key using the public points and generator G
 solve_private_key(public_points, G, curve)
