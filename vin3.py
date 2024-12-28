@@ -1,119 +1,81 @@
-# Import necessary SageMath libraries
 from sage.all import *
-from itertools import product
-from Crypto.Util.number import long_to_bytes
+import sage.all as sage
 
-# ================================
-# User-Defined Parameters Section
-# ================================
-
-# 1. Elliptic Curve Parameters (Replace with actual challenge values)
-p = 0x<your_prime_p>  # Example: 0xFFFFFFF... (a large prime number)
-a = <your_a>          # Example: 2
-b = <your_b>          # Example: 3
-
-# 2. Generator Point Coordinates (Replace with actual challenge values)
-G_x = 0x<your_G_x>    # Example: 0x1DCE8AF0A0AE...
-G_y = 0x<your_G_y>    # Example: 0x5CBDF0646E5C...
-
-# 3. X-Coordinates of P, P+G, ..., P+6G (Replace with actual challenge x-coordinates)
-x_coords = [
-    0x<your_x0>,
-    0x<your_x1>,
-    0x<your_x2>,
-    0x<your_x3>,
-    0x<your_x4>,
-    0x<your_x5>,
-    0x<your_x6>,
+# Given x-coordinates
+xs = [
+    127222731808447286384197097524849730324280912084690383123034174156693907296321941583008138816149304043198829099586978152639,
+    540150767459876746741544981524050320567261340627105743010550795668800394677819357272612801849680099119164471834128771848184,
+    378426912752589864658307848293724051252472266429208255456184007500868515338668653822829851730193370970777687937350186024739,
+    114528622155057967694026934367142168000739167063266001591280862125480038107282641048998814104241182719055831758176542012114,
+    322400405850331256663554456242498354334347017862265389196757152850674454034744292814021471167045908645361119988919752367867,
+    496047308313146975448000924265615728665813401349451895964344399497579232646901690982051726266819379622021083585061713111901,
+    339613985780778130822549050414603776860269549419836797423421156347303558845214120048926926114443864057942273222884788713615
 ]
 
-# ================================
-# End of User-Defined Parameters
-# ================================
-
-# Define the elliptic curve
-E = EllipticCurve(GF(p), [a, b])
-
-# Define the generator point G
-G = E(G_x, G_y)
-
-# Function to find possible points from an x-coordinate
-def find_points(x):
-    """
-    Given an x-coordinate, find the corresponding y-coordinates on the elliptic curve.
-    Returns a list of Sage EllipticCurve points.
-    """
-    try:
-        rhs = (x^3 + a*x + b) % p  # Compute y^2 = x^3 + ax + b mod p
-        y = rhs.sqrt()  # Compute square roots of y^2 modulo p
-
-        if y is None:
-            return []  # No valid y-coordinate found
-
-        # Ensure y is an integer within the field
-        y = Integer(y)
-
-        # Return both possible points
-        return [E(x, y), E(x, -y)]
-    except Exception as e:
-        print(f"Error finding points for x = {x}: {e}")
-        return []
-
-# Generate possible points for each x-coordinate
-points_lists = []
-for idx, x in enumerate(x_coords):
-    pts = find_points(x)
-    if not pts:
-        print(f"No valid points found for x-coordinate at index {idx}: {x}")
-    points_lists.append(pts)
-
-# Check if any x-coordinate has no corresponding y-coordinate
-if any(len(pts) == 0 for pts in points_lists):
-    print("One or more x-coordinates do not correspond to any point on the curve.")
-    exit()
-
-# Generate all possible combinations of points (2^7 = 128)
-all_combinations = list(product(*points_lists))
-print(f"Total combinations to evaluate: {len(all_combinations)}")
-
-# Function to attempt to solve for the private key (flag)
-def solve_flag(combination, G, E):
-    """
-    Given a combination of points, attempt to solve for the scalar k such that P = kG.
-    Returns the scalar k if successful, otherwise None.
-    """
-    try:
-        # Assume the first point corresponds to P = kG
-        P = combination[0]
-
-        # Compute k using discrete logarithm
-        k = E.log(P, G)
-
-        # Verify that k is valid across all points in the combination
-        for i, Q in enumerate(combination):
-            if G * (k + i) != Q:
-                return None  # Inconsistent scalar k
-        return k
-    except:
-        return None  # Discrete logarithm computation failed
-
-# Iterate through all combinations to find the correct flag
-for idx, combo in enumerate(all_combinations):
-    if (idx + 1) % 10 == 0 or idx == 0:
-        print(f"Evaluating combination {idx + 1}/{len(all_combinations)}")
-    k = solve_flag(combo, G, E)
-    if k is not None:
-        try:
-            # Convert the scalar k back to bytes to retrieve the flag
-            flag_bytes = long_to_bytes(int(k))
+def find_curve_parameters(xs):
+    # Try different prime moduli around 256 bits
+    for p_bits in range(255, 258):
+        for p in sage.Primes()[2**p_bits:2**(p_bits+1)]:
             try:
-                flag = flag_bytes.decode('utf-8')  # Attempt to decode as UTF-8
-                print(f"\n[+] Flag Found: {flag}")
-                exit()
-            except UnicodeDecodeError:
-                print(f"\n[+] Flag Found (bytes): {flag_bytes}")
-                exit()
-        except Exception as e:
-            print(f"Error converting scalar to bytes: {e}")
+                F = sage.GF(p)
+                
+                # Convert x-coordinates to field elements
+                field_xs = [F(x) for x in xs]
+                
+                # Try to find y-coordinates for the first few points
+                for a_test in range(-100, 100):  # Try some small values for a
+                    for b_test in range(-100, 100):  # Try some small values for b
+                        try:
+                            E = sage.EllipticCurve(F, [a_test, b_test])
+                            points = []
+                            
+                            # Try to lift x-coordinates to points
+                            valid_curve = True
+                            for x in field_xs:
+                                try:
+                                    # Try to find a point with this x-coordinate
+                                    y_squared = x**3 + a_test*x + b_test
+                                    if not sage.is_square(y_squared):
+                                        valid_curve = False
+                                        break
+                                    y = sage.sqrt(y_squared)
+                                    points.append(E(x, y))
+                                except:
+                                    valid_curve = False
+                                    break
+                            
+                            if valid_curve and len(points) == len(xs):
+                                # Check if points differ by G
+                                G = E.gens()[0]
+                                P = points[0]
+                                
+                                if all(points[i] == P + i*G for i in range(len(points))):
+                                    # Found the curve! Now find private key
+                                    k = discrete_log(P, G)
+                                    print(f"Found curve parameters:")
+                                    print(f"p = {p}")
+                                    print(f"a = {a_test}")
+                                    print(f"b = {b_test}")
+                                    print(f"Private key = {k}")
+                                    
+                                    # Try to convert to flag
+                                    try:
+                                        from Crypto.Util.number import long_to_bytes
+                                        flag = long_to_bytes(k)
+                                        print(f"Flag: {flag}")
+                                    except:
+                                        print("Could not convert private key to flag")
+                                    
+                                    return p, a_test, b_test, k
+                        except:
+                            continue
+            except:
+                continue
+    
+    return None
 
-print("\n[-] Flag not found in the given combinations.")
+if __name__ == "__main__":
+    print("Starting search for curve parameters...")
+    result = find_curve_parameters(xs)
+    if not result:
+        print("Could not find curve parameters")
