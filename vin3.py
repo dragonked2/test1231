@@ -7,21 +7,24 @@ from Crypto.Util.number import long_to_bytes
 # User-Defined Parameters Section
 # ================================
 
-# Replace the following placeholders with actual values from the challenge
+# 1. Elliptic Curve Parameters (Replace with actual challenge values)
+p = 0x<your_prime_p>  # Example: 0xFFFFFFF... (a large prime number)
+a = <your_a>          # Example: 2
+b = <your_b>          # Example: 3
 
-# 1. Elliptic Curve Parameters
-p =  # Example: 0xFFFFFF... (a large prime number)
-a =  # Coefficient 'a' in the elliptic curve equation
-b =  # Coefficient 'b' in the elliptic curve equation
+# 2. Generator Point Coordinates (Replace with actual challenge values)
+G_x = 0x<your_G_x>    # Example: 0x1DCE8AF0A0AE...
+G_y = 0x<your_G_y>    # Example: 0x5CBDF0646E5C...
 
-# 2. Generator Point Coordinates
-G_x =  # X-coordinate of the generator point G
-G_y =  # Y-coordinate of the generator point G
-
-# 3. X-Coordinates of P, P+G, ..., P+6G
+# 3. X-Coordinates of P, P+G, ..., P+6G (Replace with actual challenge x-coordinates)
 x_coords = [
-    # x0, x1, x2, x3, x4, x5, x6
-    # Example: 0x1234..., 0xABCD..., ..., 0x5678...
+    0x<your_x0>,
+    0x<your_x1>,
+    0x<your_x2>,
+    0x<your_x3>,
+    0x<your_x4>,
+    0x<your_x5>,
+    0x<your_x6>,
 ]
 
 # ================================
@@ -42,7 +45,7 @@ def find_points(x):
     """
     try:
         rhs = (x^3 + a*x + b) % p  # Compute y^2 = x^3 + ax + b mod p
-        y = sqrt_mod(rhs, p)  # Compute square roots of y^2 modulo p
+        y = rhs.sqrt()  # Compute square roots of y^2 modulo p
 
         if y is None:
             return []  # No valid y-coordinate found
@@ -88,8 +91,7 @@ def solve_flag(combination, G, E):
 
         # Verify that k is valid across all points in the combination
         for i, Q in enumerate(combination):
-            expected_point = (k + i) * G
-            if Q != expected_point:
+            if G * (k + i) != Q:
                 return None  # Inconsistent scalar k
         return k
     except:
