@@ -1,70 +1,117 @@
-from Crypto.Util.number import isPrime, long_to_bytes
-from math import isqrt
+# Import necessary SageMath libraries
+from sage.all import *
+from itertools import product
+from Crypto.Util.number import long_to_bytes
 
-def solve_challenge():
-    n = 18186672849609603331344182584568642941078893104802301217241028624469607021717197485036251613075846729705028441094100248337306406098776983108141004863456595015660485098203867670995838502297993710897784135087115777697925848407153788837657722171924264421550564295047937036911411846582733847201015164634546149603743246378710225407507435371659148999942913405493417037116587298256802831009824832360479040621348157491754407277404391337488226402711686156101028879269050800874367763551119682177453648890492731413760738825931684979379268401715029193518612541590846238434595210876468090976194627398214837801868969047036272502669215123
-    e = 65537
-    c = 1617999293557620724157535537778741335004656286655134597579706838690566178453141895621909480622070931381931296468696585541046188947144084107698620486576573164517733264644244665803523581927226503313545336021669824656871624111167113668644971950653103830443634752480477923970518891620296211614968804248580381104245404606917784407446279304488720323993268637887493503760075542578433642707326246816504761740168067216112150231996966168374619580811013034502620645288021335483574561758204631096791789272910596432850424873592013042090724982779979496197239647019869960002253384162472401724931485470355288814804233134786749608640103461
+# ================================
+# User-Defined Parameters Section
+# ================================
 
-    # w is a small prime, we will test possible values in the range of 20-bit primes
-    for w in range(2**19, 2**20):
-        if not isPrime(w):
-            continue
+# Replace the following placeholders with actual values from the challenge
 
-        print(f"Testing w = {w}")
+# 1. Elliptic Curve Parameters
+p =  # Example: 0xFFFFFF... (a large prime number)
+a =  # Coefficient 'a' in the elliptic curve equation
+b =  # Coefficient 'b' in the elliptic curve equation
 
-        # Use integer math to avoid floating-point overflow and maintain precision
-        p_approx = isqrt(n // (2 * w))
+# 2. Generator Point Coordinates
+G_x =  # X-coordinate of the generator point G
+G_y =  # Y-coordinate of the generator point G
 
-        # Try values around the estimated p
-        for p_offset in range(-1000, 1000):
-            p = p_approx + p_offset
+# 3. X-Coordinates of P, P+G, ..., P+6G
+x_coords = [
+    # x0, x1, x2, x3, x4, x5, x6
+    # Example: 0x1234..., 0xABCD..., ..., 0x5678...
+]
 
-            if not isPrime(p):
-                continue
+# ================================
+# End of User-Defined Parameters
+# ================================
 
-            if p.bit_length() != 512:
-                continue
+# Define the elliptic curve
+E = EllipticCurve(GF(p), [a, b])
 
-            x = 2 * w * p - 1
+# Define the generator point G
+G = E(G_x, G_y)
 
-            if not isPrime(x):
-                continue
+# Function to find possible points from an x-coordinate
+def find_points(x):
+    """
+    Given an x-coordinate, find the corresponding y-coordinates on the elliptic curve.
+    Returns a list of Sage EllipticCurve points.
+    """
+    try:
+        rhs = (x^3 + a*x + b) % p  # Compute y^2 = x^3 + ax + b mod p
+        y = sqrt_mod(rhs, p)  # Compute square roots of y^2 modulo p
 
-            if n % p == 0 and n % x == 0:
-                q = n // (p * x)
+        if y is None:
+            return []  # No valid y-coordinate found
 
-                if q.bit_length() == 1024 and isPrime(q):
-                    print(f"Found potential solution!")
-                    print(f"p = {p}")
-                    print(f"q = {q}")
-                    print(f"x = {x}")
-                    print(f"w = {w}")
+        # Ensure y is an integer within the field
+        y = Integer(y)
 
-                    try:
-                        # Calculate private key
-                        phi = (p - 1) * (q - 1) * (x - 1)
-                        d = pow(e, -1, phi)
+        # Return both possible points
+        return [E(x, y), E(x, -y)]
+    except Exception as e:
+        print(f"Error finding points for x = {x}: {e}")
+        return []
 
-                        # Decrypt the ciphertext
-                        m = pow(c, d, n)
-                        decrypted = long_to_bytes(m)
+# Generate possible points for each x-coordinate
+points_lists = []
+for idx, x in enumerate(x_coords):
+    pts = find_points(x)
+    if not pts:
+        print(f"No valid points found for x-coordinate at index {idx}: {x}")
+    points_lists.append(pts)
 
-                        # Check for valid result
-                        if b'flag' in decrypted or b'CTF' in decrypted:
-                            print(f"Found valid solution: {decrypted}")
-                            return decrypted
+# Check if any x-coordinate has no corresponding y-coordinate
+if any(len(pts) == 0 for pts in points_lists):
+    print("One or more x-coordinates do not correspond to any point on the curve.")
+    exit()
 
-                    except Exception as ex:
-                        print(f"Error during decryption: {ex}")
-                        continue
+# Generate all possible combinations of points (2^7 = 128)
+all_combinations = list(product(*points_lists))
+print(f"Total combinations to evaluate: {len(all_combinations)}")
 
-    return None
+# Function to attempt to solve for the private key (flag)
+def solve_flag(combination, G, E):
+    """
+    Given a combination of points, attempt to solve for the scalar k such that P = kG.
+    Returns the scalar k if successful, otherwise None.
+    """
+    try:
+        # Assume the first point corresponds to P = kG
+        P = combination[0]
 
-if __name__ == "__main__":
-    print("Starting RSA challenge solver...")
-    result = solve_challenge()
-    if result is None:
-        print("Could not find valid solution")
-    else:
-        print(f"Final result: {result}")
+        # Compute k using discrete logarithm
+        k = E.log(P, G)
+
+        # Verify that k is valid across all points in the combination
+        for i, Q in enumerate(combination):
+            expected_point = (k + i) * G
+            if Q != expected_point:
+                return None  # Inconsistent scalar k
+        return k
+    except:
+        return None  # Discrete logarithm computation failed
+
+# Iterate through all combinations to find the correct flag
+for idx, combo in enumerate(all_combinations):
+    if (idx + 1) % 10 == 0 or idx == 0:
+        print(f"Evaluating combination {idx + 1}/{len(all_combinations)}")
+    k = solve_flag(combo, G, E)
+    if k is not None:
+        try:
+            # Convert the scalar k back to bytes to retrieve the flag
+            flag_bytes = long_to_bytes(int(k))
+            try:
+                flag = flag_bytes.decode('utf-8')  # Attempt to decode as UTF-8
+                print(f"\n[+] Flag Found: {flag}")
+                exit()
+            except UnicodeDecodeError:
+                print(f"\n[+] Flag Found (bytes): {flag_bytes}")
+                exit()
+        except Exception as e:
+            print(f"Error converting scalar to bytes: {e}")
+
+print("\n[-] Flag not found in the given combinations.")
