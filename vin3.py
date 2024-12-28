@@ -1,17 +1,16 @@
-from ecdsa import ellipticcurve, SECP256k1
-from ecdsa.ellipticcurve import Point
-from Crypto.Util.number import bytes_to_long
-import hashlib
+from ecdsa import ellipticcurve
+from Crypto.Util.number import inverse, bytes_to_long, long_to_bytes
+import math
 
-# Elliptic curve parameters
+# Custom elliptic curve parameters
 a = -100
 b = -39
 p = 57896044618658097711785492504343953926634992332820282019728792003956564820063
 
-# Set up the elliptic curve and the generator point
+# Define the elliptic curve
 curve = ellipticcurve.CurveFp(p, a, b)
 
-# Points given from the CTF
+# Public x-coordinates
 public_points = [
     127222731808447286384197097524849730324280912084690383123034174156693907296321941583008138816149304043198829099586978152639,
     540150767459876746741544981524050320567261340627105743010550795668800394677819357272612801849680099119164471834128771848184,
@@ -22,21 +21,26 @@ public_points = [
     339613985780778130822549050414603776860269549419836797423421156347303558845214120048926926114443864057942273222884788713615
 ]
 
-# Generator point (G)
-G = SECP256k1.generator
+# Function to check if an x-coordinate is valid on the curve and recover the y-coordinate
+def recover_y_coordinates(x_coords, curve):
+    points = []
+    for x in x_coords:
+        # Calculate y^2 = x^3 + ax + b (mod p)
+        y2 = (x**3 + curve.a() * x + curve.b()) % curve.p()
+        try:
+            # Compute modular square root of y^2 (mod p)
+            y = pow(y2, (curve.p() + 1) // 4, curve.p())
+            points.append((x, y))
+        except ValueError:
+            print(f"x = {x} is not valid on the curve.")
+    return points
 
-# Function to recover private key from the given public points
-def solve_private_key(public_points, G, curve):
-    x_coords = public_points  # Given x-coordinates of points P + i*G
-    
-    # Now we will try to brute force the private key by checking the results of G*private_key
-    # Since the challenge hints at using 7 x-coordinates, we'll try brute force for small private keys (not realistic for large cases)
-    
-    for private_key in range(1, 100000):  # For simplicity, we are testing only up to 100000 (this is for small challenges)
-        P = G * private_key  # Compute G*private_key
-        if P.x() in x_coords:  # Check if the x-coordinate of G*private_key is one of the public points
-            print(f"Found private key: {private_key}")
-            return private_key
+# Recover y-coordinates for the given x-coordinates
+points = recover_y_coordinates(public_points, curve)
 
-# Solve for the private key using the public points and generator G
-solve_private_key(public_points, G, curve)
+# Display the recovered points
+for point in points:
+    print(f"Point: {point}")
+
+# Analyze the relationships between points to deduce the private key
+# Note: This step involves using properties of the elliptic curve and given points.
