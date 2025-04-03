@@ -24,7 +24,7 @@ if(isset($_GET['url'])) {
     }
 
     // Whitelist: Only allow URLs from trusted sources
-    $whitelist = ['example.com', 'anotherdomain.com'];
+    $whitelist = ['chat.stage.stf', 'board.stage.stf'];
     $parsed_url = parse_url($url);
     if (!in_array($parsed_url['host'], $whitelist)) {
         die('<div class="error">Access to this URL is not allowed. Please try another one.</div>');
